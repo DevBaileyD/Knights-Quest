@@ -2,30 +2,39 @@ import os
 os.environ['SDL_VIDEO_CENTERED'] = '1'
 
 import pgzrun
-import random 
+import random
+import level_1
+import level_2
+import level_3
 
-GRID_WIDTH = 16
-GRID_HEIGHT = 12
+#GRID_WIDTH = 16
+#GRID_HEIGHT = 12
 GRID_SIZE = 50
 GUARD_MOVE_INTERVAL = 0.5
-PLAYER_MOVE_INTERVAL = 0.25
+PLAYER_MOVE_INTERVAL = 0.1
 BACKGROUND_SEED = 123469
 
-WIDTH = GRID_WIDTH * GRID_SIZE
-HEIGHT = GRID_HEIGHT * GRID_SIZE
+#WIDTH = GRID_WIDTH * GRID_SIZE
+#HEIGHT = GRID_HEIGHT * GRID_SIZE
 
-MAP = ["WWWWWWWWWWWWWWWW",
-       "W              W",
-       "W              W",
-       "W  W  KG       W",
-       "W  WWWWWWWWWW  W",
-       "W              W",
-       "D       P      W",
-       "W  WWWWWWWWWW  W",
-       "W       GK  W  W",
-       "W              W",
-       "W              W",
-       "WWWWWWWWWWWWWWWW"]
+LEVELS = [level_1, level_2, level_3]
+
+current_level = 0
+level_complete = False 
+
+def load_level(level):
+    global MAP, GRID_WIDTH, GRID_HEIGHT, WIDTH, HEIGHT
+
+    selected_level = LEVELS[level]
+
+    MAP = selected_level.MAP
+    GRID_WIDTH = selected_level.GRID_WIDTH
+    GRID_HEIGHT = selected_level.GRID_HEIGHT
+
+    WIDTH = GRID_WIDTH * GRID_SIZE
+    HEIGHT = GRID_HEIGHT * GRID_SIZE
+
+    setup_game()
 
 
 def screen_coords(x, y):
@@ -35,9 +44,10 @@ def grid_coords(actor):
     return (round(actor.x / GRID_SIZE), round(actor.y / GRID_SIZE))
 
 def setup_game():
-    global game_over, player_won, player, keys_to_collect, guards
+    global game_over, player_won, player, keys_to_collect, guards, level_complete
     game_over = False
     player_won = False
+    level_complete = False
     player = Actor("player", anchor=("left", "top"))
     keys_to_collect = []
     guards = []
@@ -112,9 +122,15 @@ def draw():
     draw_actors()
     if game_over:
         draw_game_over()
+    elif level_complete:
+        draw_level_complete()
 
 def on_key_up(key):
+    #global current_level
+    
     if key == key.SPACE and game_over:
+        #current_level = 0
+        #load_level(current_level)
         setup_game()
     
 def on_key_down(key):
@@ -126,9 +142,37 @@ def on_key_down(key):
         move_player(1,0)
     elif key == keys.DOWN:
         move_player(0,1)
+    elif key == keys.RETURN and level_complete:
+        next_level()
+
+def next_level():
+    global current_level
+
+    current_level += 1
+    load_level(current_level)
+
+def draw_level_complete():
+    screen_middle = (WIDTH / 2, HEIGHT / 2)
+
+    screen.draw.text(
+        "LEVEL COMPLETE!",
+        midbottom=screen_middle,
+        fontsize=GRID_SIZE,
+        color="green",
+        owidth=1
+    )
+
+    screen.draw.text(
+        "Press ENTER to play next level",
+        midtop=(WIDTH / 2, HEIGHT / 2 + GRID_SIZE),
+        fontsize=GRID_SIZE / 2,
+        color="cyan",
+        owidth=1
+    )
+        
 
 def move_player(dx, dy):
-    global game_over, player_won
+    global game_over, player_won, current_level, level_complete
     if game_over:
         return
     (x, y) = grid_coords(player)
@@ -139,6 +183,9 @@ def move_player(dx, dy):
         return
     elif square == "D":
         if len(keys_to_collect) > 0:
+            return
+        elif current_level < len(LEVELS) - 1:
+            level_complete = True
             return
         else:
             game_over = True
@@ -164,8 +211,8 @@ def repeat_player_move():
         move_player(0,1)
 
 def move_guard(guard):
-    global game_over, player_won
-    if game_over:
+    global game_over, player_won, level_complete
+    if game_over or level_complete:
         return
     (player_x, player_y) = grid_coords(player)
     (guard_x, guard_y) = grid_coords(guard)
@@ -188,7 +235,7 @@ def move_guards():
     for guard in guards:
         move_guard(guard)
     
-setup_game()
+load_level(0)
 
 clock.schedule_interval(move_guards, GUARD_MOVE_INTERVAL)
 
